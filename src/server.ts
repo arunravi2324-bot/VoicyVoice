@@ -19,14 +19,11 @@ import {
 } from "@arizeai/openinference-semantic-conventions";
 import twilio from "twilio";
 import type WebSocket from "ws";
-import pino from "pino";
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
-
-const log = pino({ name: "server" });
 const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 const app = new Hono();
@@ -50,7 +47,7 @@ async function parseTwilioBody(c: any): Promise<Record<string, any> | null> {
   }
 
   if (!twilio.validateRequest(authToken, signature, fullUrl, params)) {
-    log.warn({ url: fullUrl }, "Invalid Twilio signature");
+    console.warn("Invalid Twilio signature", fullUrl);
     return null;
   }
 
@@ -65,7 +62,7 @@ app.post("/incoming-call", async (c) => {
   const from = (body["From"] as string) ?? "unknown";
   const to = (body["To"] as string) ?? "unknown";
   const callSid = (body["CallSid"] as string) ?? "unknown";
-  log.info({ callSid, from, to }, "Incoming call");
+  console.log("Incoming call", { callSid, from, to });
 
   const host = process.env.PUBLIC_URL ?? new URL(c.req.url).origin;
   const wsHost = host.replace("https://", "wss://").replace("http://", "ws://");
@@ -90,7 +87,7 @@ app.post("/call-status", async (c) => {
   const callSid = body["CallSid"] as string;
   const status = body["CallStatus"] as string;
 
-  log.info({ callSid, status }, "Call status update");
+  console.log("Call status update", { callSid, status });
 
   if (status === "completed" || status === "failed" || status === "no-answer") {
     const call = callManager.remove(callSid);
@@ -132,7 +129,7 @@ app.post("/call-status", async (c) => {
           finalStatus,
         });
       } catch (err) {
-        log.error({ err, callSid }, "Failed to end call in Convex");
+        console.error("Failed to end call in Convex", callSid, err);
       }
     }
   }
@@ -148,7 +145,7 @@ app.post("/whisper", async (c) => {
   const sid = parentCallSid ?? callSid ?? "";
 
   const rawSummary = await generateWhisperSummary(sid);
-  log.info({ sid, summary: rawSummary }, "Whisper summary generated");
+  console.log("Whisper summary generated", { sid, summary: rawSummary });
 
   const call = callManager.get(sid);
   if (call) {
@@ -157,7 +154,7 @@ app.post("/whisper", async (c) => {
         callId: call.callId,
         summary: rawSummary,
       })
-      .catch((err) => log.error({ err, sid }, "Failed to save transfer summary"));
+      .catch((err) => console.error("Failed to save transfer summary", sid, err));
   }
 
   const summary = rawSummary
@@ -180,7 +177,7 @@ app.post("/transfer-fallback", async (c) => {
   const dialCallStatus = body["DialCallStatus"] as string;
   const callSid = body["CallSid"] as string;
 
-  log.info({ callSid, dialCallStatus }, "Transfer fallback triggered");
+  console.log("Transfer fallback triggered", { callSid, dialCallStatus });
 
   if (dialCallStatus !== "completed") {
     const call = callManager.get(callSid);
@@ -252,7 +249,7 @@ app.post("/trigger-call", dashboardAuth, async (c) => {
     return c.json({ error: "Invalid phone number format. Use E.164 (e.g. +14155551234)" }, 400);
   }
 
-  const twilioNumber = "+14452751987";
+  const twilioNumber = process.env.TWILIO_PHONE_NUMBER ?? "+14452751987";
   const host = process.env.PUBLIC_URL ?? `http://localhost:${PORT}`;
 
   try {
@@ -263,10 +260,10 @@ app.post("/trigger-call", dashboardAuth, async (c) => {
       statusCallback: `${host}/call-status`,
       statusCallbackEvent: ["completed", "failed", "no-answer"],
     });
-    log.info({ to, callSid: call.sid }, "Manual outbound call triggered");
+    console.log("Manual outbound call triggered", { to, callSid: call.sid });
     return c.json({ success: true, callSid: call.sid });
   } catch (err: any) {
-    log.error({ err, to }, "Failed to trigger outbound call");
+    console.error("Failed to trigger outbound call", to, err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -284,7 +281,7 @@ app.get(
 
         switch (msg.event) {
           case "connected":
-            log.info("Twilio media stream connected");
+            console.log("Twilio media stream connected");
             break;
 
           case "start":
@@ -385,7 +382,7 @@ app.get(
                   });
                 })
                 .catch((err) => {
-                  log.error({ err }, "Failed to create call in Convex");
+                  console.error("Failed to create call in Convex", err);
                 });
             }
             break;
@@ -402,14 +399,14 @@ app.get(
               if (call?.pendingTransfer) {
                 const { reason, host: transferHost } = call.pendingTransfer;
                 call.pendingTransfer = undefined;
-                log.info({ callSid, reason }, "Audio playback complete — executing transfer now");
+                console.log("Audio playback complete — executing transfer now", { callSid, reason });
                 transferToHuman(call.callId, callSid, reason, transferHost);
               }
             }
             break;
 
           case "stop":
-            log.info({ streamSid }, "Twilio media stream stopped");
+            console.log("Twilio media stream stopped", streamSid);
             if (openaiWs) {
               openaiWs.close();
               openaiWs = null;
@@ -419,7 +416,7 @@ app.get(
       },
 
       onClose() {
-        log.info({ streamSid }, "WebSocket closed");
+        console.log("WebSocket closed", streamSid);
         if (openaiWs) {
           openaiWs.close();
           openaiWs = null;
@@ -427,7 +424,7 @@ app.get(
       },
 
       onError(event) {
-        log.error({ error: event }, "WebSocket error");
+        console.error("WebSocket error", event);
         if (openaiWs) {
           openaiWs.close();
           openaiWs = null;
@@ -441,10 +438,10 @@ async function recoverOrphanedCalls() {
   try {
     const result = await convex.mutation(api.calls.recoverOrphans, {});
     if (result.recovered > 0) {
-      log.info({ recovered: result.recovered }, "Recovered orphaned calls on startup");
+      console.log("Recovered orphaned calls on startup", result.recovered);
     }
   } catch (err) {
-    log.error({ err }, "Failed to recover orphaned calls");
+    console.error("Failed to recover orphaned calls", err);
   }
 }
 

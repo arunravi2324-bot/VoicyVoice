@@ -11,9 +11,6 @@ import { addTranscriptEntry } from "./transcript.ts";
 import { callManager } from "./call-manager.ts";
 import { tracer } from "../tracing.ts";
 import type { Id } from "../../convex/_generated/dataModel";
-import pino from "pino";
-
-const log = pino({ name: "openai-relay" });
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const REALTIME_MODEL = "gpt-4o-realtime-preview";
@@ -46,7 +43,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
   });
 
   ws.on("open", () => {
-    log.info({ twilioSid }, "Connected to OpenAI Realtime API");
+    console.log("Connected to OpenAI Realtime API", twilioSid);
 
     const sessionUpdate = {
       type: "session.update",
@@ -81,7 +78,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
 
       case "conversation.item.input_audio_transcription.completed":
         if (event.transcript) {
-          log.info({ twilioSid, text: event.transcript }, "User said");
+          console.log("User said", { twilioSid, text: event.transcript });
           pendingUserInput = event.transcript;
           await addTranscriptEntry(
             callId,
@@ -94,7 +91,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
 
       case "response.audio_transcript.done":
         if (event.transcript) {
-          log.info({ twilioSid, text: event.transcript }, "Assistant said");
+          console.log("Assistant said", { twilioSid, text: event.transcript });
           pendingAssistantOutput = event.transcript;
           await addTranscriptEntry(
             callId,
@@ -110,7 +107,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
           try {
             const args = JSON.parse(event.arguments);
             const reason = args.reason ?? "off_topic";
-            log.info({ twilioSid, reason }, "Transfer to human queued — waiting for bot to finish speaking");
+            console.log("Transfer to human queued — waiting for bot to finish speaking", { twilioSid, reason });
 
             pendingTransfer = { reason };
 
@@ -124,7 +121,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
             };
             ws.send(JSON.stringify(functionOutput));
           } catch (err) {
-            log.error({ err }, "Failed to parse transfer arguments");
+            console.error("Failed to parse transfer arguments", err);
           }
         }
         break;
@@ -163,22 +160,22 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
           if (inMemoryCall) {
             inMemoryCall.pendingTransfer = { reason, host };
           }
-          log.info({ twilioSid, reason }, "Bot finished generating — sending mark to wait for audio playback");
+          console.log("Bot finished generating — sending mark to wait for audio playback", { twilioSid, reason });
           sendMark("transfer-ready");
         }
         break;
       }
 
       case "error":
-        log.error({ error: event.error }, "OpenAI Realtime error");
+        console.error("OpenAI Realtime error", event.error);
         break;
 
       case "session.created":
-        log.info({ twilioSid }, "OpenAI session created");
+        console.log("OpenAI session created", twilioSid);
         break;
 
       case "session.updated":
-        log.info({ twilioSid }, "OpenAI session configured");
+        console.log("OpenAI session configured", twilioSid);
         ws.send(
           JSON.stringify({
             type: "conversation.item.create",
@@ -202,14 +199,11 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
   });
 
   ws.on("error", (err) => {
-    log.error({ err, twilioSid }, "OpenAI WebSocket error");
+    console.error("OpenAI WebSocket error", twilioSid, err);
   });
 
   ws.on("close", (code, reason) => {
-    log.info(
-      { twilioSid, code, reason: reason.toString() },
-      "OpenAI WebSocket closed"
-    );
+    console.log("OpenAI WebSocket closed", { twilioSid, code, reason: reason.toString() });
     onSessionEnd();
   });
 
