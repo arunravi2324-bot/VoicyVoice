@@ -450,6 +450,7 @@ async function recoverOrphanedCalls() {
 
 recoverOrphanedCalls();
 
+app.get("/", (c) => c.redirect("/dashboard/"));
 app.get("/dashboard", (c) => c.redirect("/dashboard/"));
 app.use("/dashboard/*", serveStatic({ root: "./dashboard/dist", rewriteRequestPath: (path) => path.replace(/^\/dashboard/, "") }));
 app.use("/dashboard/*", serveStatic({ root: "./dashboard/dist", rewriteRequestPath: () => "/index.html" }));
