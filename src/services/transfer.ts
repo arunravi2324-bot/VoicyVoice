@@ -12,9 +12,6 @@ import { api } from "../../convex/_generated/api";
 import { callManager } from "./call-manager.ts";
 import { tracer } from "../tracing.ts";
 import type { Id } from "../../convex/_generated/dataModel";
-import pino from "pino";
-
-const log = pino({ name: "transfer" });
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
@@ -31,7 +28,7 @@ export async function transferToHuman(
 ) {
   const humanPhone = process.env.HUMAN_AGENT_PHONE;
   if (!humanPhone) {
-    log.error("HUMAN_AGENT_PHONE not configured");
+    console.error("HUMAN_AGENT_PHONE not configured");
     return;
   }
 
@@ -70,14 +67,14 @@ export async function transferToHuman(
 
     await twilioClient.calls(twilioSid).update({ twiml });
     transferSpan.setStatus({ code: SpanStatusCode.OK });
-    log.info({ twilioSid, reason }, "Call transferred to human agent");
+    console.log("Call transferred to human agent", { twilioSid, reason });
   } catch (err) {
     transferSpan.setStatus({
       code: SpanStatusCode.ERROR,
       message: String(err),
     });
     transferSpan.recordException(err as Error);
-    log.error({ err, twilioSid }, "Failed to transfer call");
+    console.error("Failed to transfer call", twilioSid, err);
   } finally {
     transferSpan.end();
   }
@@ -143,7 +140,7 @@ export async function generateWhisperSummary(
       message: String(err),
     });
     whisperSpan.recordException(err as Error);
-    log.error({ err }, "Failed to generate whisper summary");
+    console.error("Failed to generate whisper summary", err);
     return "Caller needs assistance with a Wise transfer issue.";
   } finally {
     whisperSpan.end();

@@ -1,8 +1,5 @@
 import "./tracing.ts";
 import { app, websocket, PORT } from "./server.ts";
-import pino from "pino";
-
-const log = pino({ name: "main" });
 
 const server = Bun.serve({
   port: PORT,
@@ -10,16 +7,12 @@ const server = Bun.serve({
   websocket,
 });
 
-log.info({ port: server.port }, "VoicyVoice server started");
+console.log(`VoicyVoice server started on port ${server.port}`);
 
-process.on("SIGINT", () => {
-  log.info("Shutting down...");
-  server.stop();
-  process.exit(0);
-});
-
-process.on("SIGTERM", () => {
-  log.info("Shutting down...");
-  server.stop();
-  process.exit(0);
-});
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    console.log("Shutting down...");
+    server.stop();
+    process.exit(0);
+  });
+}
