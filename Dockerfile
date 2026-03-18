@@ -18,7 +18,6 @@ COPY --from=server-deps /app/node_modules node_modules
 COPY package.json ./
 COPY src/ src/
 COPY convex/ convex/
-COPY assets/ assets/
 COPY --from=dashboard-build /app/dashboard/dist dashboard/dist
 
 ENV NODE_ENV=production

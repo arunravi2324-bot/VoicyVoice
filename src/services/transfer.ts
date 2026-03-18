@@ -63,7 +63,7 @@ export async function transferToHuman(
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="30" action="${host}/transfer-fallback" method="POST" waitUrl="${host}/hold-music-twiml">
+  <Dial timeout="30" action="${host}/transfer-fallback" method="POST">
     <Number url="${host}/whisper" method="POST">${humanPhone}</Number>
   </Dial>
 </Response>`;

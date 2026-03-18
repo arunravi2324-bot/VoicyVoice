@@ -59,8 +59,6 @@ async function parseTwilioBody(c: any): Promise<Record<string, any> | null> {
 
 app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
-app.use("/assets/*", serveStatic({ root: "./" }));
-
 app.post("/incoming-call", async (c) => {
   const body = await parseTwilioBody(c);
   if (!body) return c.text("Forbidden", 403);
@@ -173,15 +171,6 @@ app.post("/whisper", async (c) => {
   <Say voice="Polly.Amy">Incoming transfer from VoicyVoice. ${summary}</Say>
 </Response>`;
 
-  return c.text(twiml, 200, { "Content-Type": "text/xml" });
-});
-
-app.all("/hold-music-twiml", (c) => {
-  const host = process.env.PUBLIC_URL ?? new URL(c.req.url).origin;
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Play loop="0">${host}/assets/hold-music.mp3</Play>
-</Response>`;
   return c.text(twiml, 200, { "Content-Type": "text/xml" });
 });
 
