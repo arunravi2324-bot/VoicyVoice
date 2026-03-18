@@ -3,6 +3,8 @@ WORKDIR /app
 
 FROM base AS dashboard-build
 ARG VITE_CONVEX_URL
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
 COPY dashboard/package.json dashboard/bun.lock* dashboard/
 COPY convex/ convex/
 RUN cd dashboard && bun install --frozen-lockfile
