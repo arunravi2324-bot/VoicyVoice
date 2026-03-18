@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { basicAuth } from "hono/basic-auth";
+import { timingSafeEqual } from "crypto";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { createBunWebSocket } from "hono/bun";
@@ -226,14 +226,28 @@ app.post("/transfer-fallback", async (c) => {
   );
 });
 
-const dashboardAuth = basicAuth({
-  verifyUser: (username, password) => {
-    const expectedUser = process.env.DASHBOARD_USER;
-    const expectedPass = process.env.DASHBOARD_PASS;
-    if (!expectedUser || !expectedPass) return false;
-    return username === expectedUser && password === expectedPass;
-  },
-});
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
+const dashboardAuth = async (c: any, next: any) => {
+  const authHeader = c.req.header("Authorization") ?? "";
+  if (!authHeader.startsWith("Basic ")) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const decoded = atob(authHeader.slice(6));
+  const [username, ...rest] = decoded.split(":");
+  const password = rest.join(":");
+  const expectedUser = process.env.DASHBOARD_USER ?? "";
+  const expectedPass = process.env.DASHBOARD_PASS ?? "";
+  if (!expectedUser || !safeCompare(username, expectedUser) || !safeCompare(password, expectedPass)) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  await next();
+};
 
 app.get("/api/calls/active", dashboardAuth, (c) => {
   return c.json(callManager.listActive());
