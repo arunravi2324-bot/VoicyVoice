@@ -1,0 +1,35 @@
+{
+  "name": "voicyvoice",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "dev:dashboard": "cd dashboard && bun run dev",
+    "dev:convex": "npx convex dev",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/bun": "latest",
+    "@types/ws": "^8.18.1",
+    "tailwindcss": "^4.2.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@arizeai/openinference-semantic-conventions": "^2.1.7",
+    "@arizeai/phoenix-otel": "^0.4.2",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.213.0",
+    "@opentelemetry/resources": "^2.6.0",
+    "@opentelemetry/sdk-trace-base": "^2.6.0",
+    "@opentelemetry/sdk-trace-node": "^2.6.0",
+    "convex": "^1.33.1",
+"hono": "^4.12.8",
+    "openai": "^6.31.0",
+    "pino": "^10.3.1",
+    "twilio": "^5.13.0",
+    "ws": "^8.19.0"
+  }
+}
