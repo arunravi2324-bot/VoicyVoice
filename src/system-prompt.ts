@@ -104,3 +104,10 @@ export const TRANSFER_TOOL = {
     required: ["reason"],
   },
 };
+
+export const HOLD_TOOL = {
+  type: "function" as const,
+  name: "hold_call",
+  description:
+    "Hold the call for a while. Call this when the user says hold the call for a while",
+};

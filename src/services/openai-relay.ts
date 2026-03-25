@@ -6,7 +6,7 @@ import {
   LLM_MODEL_NAME,
   OpenInferenceSpanKind,
 } from "@arizeai/openinference-semantic-conventions";
-import { SYSTEM_PROMPT, TRANSFER_TOOL } from "../system-prompt.ts";
+import { SYSTEM_PROMPT, TRANSFER_TOOL, HOLD_TOOL } from "../system-prompt.ts";
 import { addTranscriptEntry } from "./transcript.ts";
 import { callManager } from "./call-manager.ts";
 import { tracer } from "../tracing.ts";
@@ -32,6 +32,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
   let pendingTransfer: {
     reason: "off_topic" | "frustrated_caller" | "user_request";
   } | null = null;
+  let pendingHold = false;
   let pendingUserInput: string | null = null;
   let pendingAssistantOutput: string | null = null;
 
@@ -59,7 +60,7 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
         turn_detection: {
           type: "semantic_vad",
         },
-        tools: [TRANSFER_TOOL],
+        tools: [TRANSFER_TOOL, HOLD_TOOL],
       },
     };
 
@@ -123,6 +124,17 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
           } catch (err) {
             console.error("Failed to parse transfer arguments", err);
           }
+        } else if (event.name === "hold_call") {
+          console.log("Hold call queued — waiting for bot to finish speaking", { twilioSid });
+          pendingHold = true;
+          ws.send(JSON.stringify({
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id: event.call_id,
+              output: JSON.stringify({ status: "holding" }),
+            },
+          }));
         }
         break;
 
@@ -162,6 +174,14 @@ export function createOpenAIRelay(options: RelayOptions): WebSocket {
           }
           console.log("Bot finished generating — sending mark to wait for audio playback", { twilioSid, reason });
           sendMark("transfer-ready");
+        } else if (pendingHold) {
+          pendingHold = false;
+          const inMemoryCall = callManager.get(twilioSid);
+          if (inMemoryCall) {
+            inMemoryCall.pendingHold = { host };
+          }
+          console.log("Bot finished generating — sending mark to wait for audio playback before hold", { twilioSid });
+          sendMark("hold-ready");
         }
         break;
       }
