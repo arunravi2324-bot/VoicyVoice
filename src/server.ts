@@ -11,6 +11,7 @@ import {
   sendAudioToOpenAI,
 } from "./services/openai-relay.ts";
 import { generateWhisperSummary, transferToHuman } from "./services/transfer.ts";
+import { holdCall } from "./services/hold.ts";
 import { tracer } from "./tracing.ts";
 import { SpanStatusCode, context, trace } from "@opentelemetry/api";
 import {
@@ -415,6 +416,14 @@ app.get(
                 call.pendingTransfer = undefined;
                 console.log("Audio playback complete — executing transfer now", { callSid, reason });
                 transferToHuman(call.callId, callSid, reason, transferHost);
+              }
+            } else if (msg.mark?.name === "hold-ready" && callSid) {
+              const call = callManager.get(callSid);
+              if (call?.pendingHold) {
+                const { host: holdHost } = call.pendingHold;
+                call.pendingHold = undefined;
+                console.log("Audio playback complete — putting call on hold", { callSid });
+                holdCall(callSid, holdHost);
               }
             }
             break;

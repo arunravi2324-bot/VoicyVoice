@@ -16,6 +16,9 @@ export interface ActiveCall {
     reason: "off_topic" | "frustrated_caller" | "user_request";
     host: string;
   };
+  pendingHold?: {
+    host: string;
+  };
 }
 
 class CallManager extends EventEmitter {
